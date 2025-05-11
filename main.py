@@ -1,67 +1,38 @@
-from auth import register_user, login_user, load_users
-from chat import start_server, connect_to_peer
-import threading
+from discovery import send_broadcast, listen_for_users, online_users
 
 def start_interface(user):
-    threading.Thread(target=start_server, args=(user['username'], user['ip']), daemon=True).start()
+    # Start discovery service
+    threading.Thread(target=listen_for_users, args=(user['username'],), daemon=True).start()
+    threading.Thread(target=send_broadcast, args=(user['username'], user['ip']), daemon=True).start()
 
     while True:
-        try:
-            print("\n--- CHAT MENU ---")
-            print("1. View users")
-            print("2. Connect to a user")
-            print("3. Logout")
-            choice = input("Choose an option: ").strip()
+        print("\n--- CHAT MENU ---")
+        print("1. View Online Users")
+        print("2. Connect to a user")
+        print("3. Logout")
+        choice = input("Choose an option: ").strip()
 
-            if choice == '1':
-                users = load_users()
-                print("\n--- Registered Users ---")
-                for uname in users:
-                    if uname != user['username']:
-                        print(f"- {uname} @ {users[uname]['ip']}")
-            elif choice == '2':
-                target = input("Enter username to connect to: ").strip()
-                users = load_users()
-                if target not in users:
-                    print("User not found.")
-                elif target == user['username']:
-                    print("Cannot connect to yourself.")
-                else:
-                    ip = users[target]['ip']
-                    connect_to_peer(ip, user['username'], target)
-            elif choice == '3':
-                print("Logging out.")
-                break
+        if choice == '1':
+            print("\n--- Online Users ---")
+            if not online_users:
+                print("No users currently online.")
             else:
-                print("Invalid option.")
-        except KeyboardInterrupt:
-            print("\n[!] Interrupted. Returning to main menu.")
+                for uname, ip in online_users.items():
+                    print(f"- {uname} @ {ip}")
+
+        elif choice == '2':
+            target = input("Enter username to connect to: ").strip()
+            if target not in online_users:
+                print("User not found or not online.")
+            elif target == user['username']:
+                print("Cannot connect to yourself.")
+            else:
+                ip = online_users[target]
+                connect_to_peer(ip, user['username'], target)
+
+        elif choice == '3':
+            print("Logging out.")
             break
 
-def main():
-    while True:
-        try:
-            print("\n--- MENU ---")
-            print("1. Register")
-            print("2. Login")
-            print("3. Exit")
-            choice = input("Choose an option: ").strip()
-
-            if choice == '1':
-                if register_user():
-                    continue
-            elif choice == '2':
-                user = login_user()
-                if user:
-                    start_interface(user)
-            elif choice == '3':
-                print("Goodbye.")
-                break
-            else:
-                print("Invalid choice.")
-        except KeyboardInterrupt:
-            print("\n[!] Exiting.")
-            break
-
-if __name__ == '__main__':
-    main()
+        else:
+            print("Invalid option.")
